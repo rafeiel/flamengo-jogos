@@ -1,5 +1,4 @@
-const chromium = require('@sparticuz/chromium');
-const puppeteer = require('puppeteer-core');
+const axios = require('axios');
 
 exports.handler = async (event, context) => {
   const headers = {
@@ -13,114 +12,67 @@ exports.handler = async (event, context) => {
     return { statusCode: 200, headers, body: '' };
   }
 
-  let browser = null;
-
   try {
-    // Iniciar o navegador headless
-    browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
-    });
-
-    const page = await browser.newPage();
+    // SUBSTITUA 'SUA_API_KEY_AQUI' pela sua chave da API-Football
+    const API_KEY = process.env.API_FOOTBALL_KEY;
     
-    // Navegar para a página
-    await page.goto('https://www.espn.com.br/futebol/time/calendario/_/id/819/bra.flamengo', {
-      waitUntil: 'networkidle2',
-      timeout: 30000
+    // ID do Flamengo na API-Football: 127
+    const response = await axios.get('https://v3.football.api-sports.io/fixtures', {
+      params: {
+        team: 127,  // ID do Flamengo
+        season: 2024,
+        next: 15    // Próximos 15 jogos
+      },
+      headers: {
+        'x-rapidapi-key': API_KEY,
+        'x-rapidapi-host': 'v3.football.api-sports.io'
+      }
     });
 
-    // Aguardar a tabela de jogos carregar
-    await page.waitForSelector('tbody.Table__TBODY', { timeout: 10000 });
+    const fixtures = response.data.response || [];
+    const jogos = fixtures.map(fixture => {
+      const homeTeam = fixture.teams.home.name;
+      const awayTeam = fixture.teams.away.name;
+      const ehCasa = homeTeam === 'Flamengo';
+      const adversario = ehCasa ? awayTeam : homeTeam;
 
-    // Extrair os dados dos jogos
-    const jogos = await page.evaluate(() => {
-      const rows = document.querySelectorAll('tbody.Table__TBODY tr.Table__TR');
-      const results = [];
-
-      rows.forEach(row => {
-        try {
-          // Data
-          const dataEl = row.querySelector('td:first-child span');
-          const data = dataEl ? dataEl.textContent.trim() : '';
-
-          // Adversário - pegar o nome do time (não Flamengo)
-          const teams = row.querySelectorAll('.Table__Team');
-          let adversario = '';
-          let mandante = '';
-          let visitante = '';
-          let ehCasa = false;
-
-          if (teams.length >= 2) {
-            const time1 = teams[0].textContent.trim();
-            const time2 = teams[1].textContent.trim();
-            
-            if (time1.includes('Flamengo')) {
-              mandante = 'Flamengo';
-              visitante = time2;
-              adversario = time2;
-              ehCasa = true;
-            } else {
-              mandante = time1;
-              visitante = 'Flamengo';
-              adversario = time1;
-              ehCasa = false;
-            }
-          }
-
-          // Horário
-          const horarioEl = row.querySelector('td:nth-child(2)');
-          const horario = horarioEl ? horarioEl.textContent.trim() : '';
-
-          // Competição
-          const competicaoEl = row.querySelector('.Schedule__League');
-          const competicao = competicaoEl ? competicaoEl.textContent.trim() : '';
-
-          // Local (se disponível)
-          const localEl = row.querySelector('.Schedule__Location');
-          const local = localEl ? localEl.textContent.trim() : '';
-
-          // Só adicionar se tiver data e adversário
-          if (data && adversario) {
-            results.push({
-              data,
-              horario: horario || 'A definir',
-              adversario,
-              mandante,
-              visitante,
-              local: local || 'A definir',
-              competicao: competicao || 'A definir',
-              ehCasa
-            });
-          }
-        } catch (error) {
-          console.error('Erro ao processar linha:', error);
-        }
+      // Formatar data
+      const date = new Date(fixture.fixture.date);
+      const dataFormatada = date.toLocaleDateString('pt-BR', { 
+        day: '2-digit', 
+        month: '2-digit',
+        year: 'numeric'
+      });
+      const horarioFormatado = date.toLocaleTimeString('pt-BR', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
       });
 
-      return results;
+      return {
+        data: dataFormatada,
+        horario: horarioFormatado,
+        adversario: adversario,
+        mandante: homeTeam,
+        visitante: awayTeam,
+        local: fixture.fixture.venue.name || 'A definir',
+        competicao: fixture.league.name || 'A definir',
+        rodada: fixture.league.round || '',
+        ehCasa: ehCasa
+      };
     });
-
-    await browser.close();
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        jogos: jogos.slice(0, 15),
+        jogos: jogos,
         total: jogos.length,
         timestamp: new Date().toISOString()
       })
     };
 
   } catch (error) {
-    if (browser) {
-      await browser.close();
-    }
-
-    console.error('Erro no scraping:', error);
+    console.error('Erro ao buscar jogos:', error.response?.data || error.message);
     
     return {
       statusCode: 500,
