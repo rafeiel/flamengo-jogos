@@ -13,21 +13,72 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    // SUBSTITUA 'SUA_API_KEY_AQUI' pela sua chave da API-Football
     const API_KEY = process.env.API_FOOTBALL_KEY;
     
-    // ID do Flamengo na API-Football: 127
+    // LOG PARA DEBUG
+    console.log('API_KEY existe?', !!API_KEY);
+    
+    // DADOS DE TESTE - Remover depois
+    const jogosTeste = [
+      {
+        data: '15/11/2024',
+        horario: '18:30',
+        adversario: 'Vasco',
+        mandante: 'Flamengo',
+        visitante: 'Vasco',
+        local: 'Maracanã',
+        competicao: 'Campeonato Brasileiro',
+        rodada: 'Rodada 34',
+        ehCasa: true
+      },
+      {
+        data: '20/11/2024',
+        horario: '21:00',
+        adversario: 'Palmeiras',
+        mandante: 'Palmeiras',
+        visitante: 'Flamengo',
+        local: 'Allianz Parque',
+        competicao: 'Campeonato Brasileiro',
+        rodada: 'Rodada 35',
+        ehCasa: false
+      }
+    ];
+
+    // RETORNAR DADOS DE TESTE PRIMEIRO
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        jogos: jogosTeste,
+        total: jogosTeste.length,
+        timestamp: new Date().toISOString(),
+        debug: {
+          hasApiKey: !!API_KEY
+        }
+      })
+    };
+
+    // SE OS DADOS DE TESTE APARECEREM, ENTÃO O PROBLEMA É NA API
+    // Aí descomente o código abaixo:
+    
+    /*
+    if (!API_KEY) {
+      throw new Error('API_KEY não configurada');
+    }
+
     const response = await axios.get('https://v3.football.api-sports.io/fixtures', {
       params: {
-        team: 127,  // ID do Flamengo
+        team: 127,
         season: 2024,
-        next: 15    // Próximos 15 jogos
+        next: 15
       },
       headers: {
         'x-rapidapi-key': API_KEY,
         'x-rapidapi-host': 'v3.football.api-sports.io'
       }
     });
+
+    console.log('Resposta da API:', response.data);
 
     const fixtures = response.data.response || [];
     const jogos = fixtures.map(fixture => {
@@ -36,7 +87,6 @@ exports.handler = async (event, context) => {
       const ehCasa = homeTeam === 'Flamengo';
       const adversario = ehCasa ? awayTeam : homeTeam;
 
-      // Formatar data
       const date = new Date(fixture.fixture.date);
       const dataFormatada = date.toLocaleDateString('pt-BR', { 
         day: '2-digit', 
@@ -70,9 +120,10 @@ exports.handler = async (event, context) => {
         timestamp: new Date().toISOString()
       })
     };
+    */
 
   } catch (error) {
-    console.error('Erro ao buscar jogos:', error.response?.data || error.message);
+    console.error('Erro completo:', error);
     
     return {
       statusCode: 500,
@@ -80,6 +131,7 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         error: 'Erro ao buscar jogos do Flamengo',
         message: error.message,
+        stack: error.stack,
         jogos: []
       })
     };
