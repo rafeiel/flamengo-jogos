@@ -1,5 +1,5 @@
 {
-  "name": "flamengo-futuro",
+  "name": "flamengo-jogos",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -13,7 +13,9 @@
     "react-dom": "^18.3.1",
     "lucide-react": "^0.263.1",
     "axios": "^1.6.0",
-    "cheerio": "^1.0.0-rc.12"
+    "cheerio": "^1.0.0-rc.12",
+    "@sparticuz/chromium": "^123.0.1",
+    "puppeteer-core": "^23.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
@@ -23,10 +25,5 @@
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.4",
     "vite": "^5.3.1"
-  },
-  "main": "postcss.config.js",
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": ""
+  }
 }

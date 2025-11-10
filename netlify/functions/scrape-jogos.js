@@ -1,5 +1,5 @@
-const axios = require('axios');
-const cheerio = require('cheerio');
+const chromium = require('@sparticuz/chromium');
+const puppeteer = require('puppeteer-core');
 
 exports.handler = async (event, context) => {
   const headers = {
@@ -13,74 +13,113 @@ exports.handler = async (event, context) => {
     return { statusCode: 200, headers, body: '' };
   }
 
+  let browser = null;
+
   try {
-    const url = 'https://ge.globo.com/futebol/times/flamengo/agenda-de-jogos-do-flamengo/';
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
+    // Iniciar o navegador headless
+    browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
     });
 
-    const html = response.data;
-    const $ = cheerio.load(html);
-    const jogos = [];
-
-    // Selecionar todos os cards de jogos
-    $('a.sc-eldPxv').each((index, element) => {
-      const $el = $(element);
-      
-      // Extrair data e horário
-      const dataHorario = $el.find('.sc-imWYAI.cYNmqd span.sc-jXbUNg').map((i, span) => $(span).text().trim()).get();
-      const data = dataHorario[0] || '';
-      const horario = dataHorario[1] || '';
-      
-      // Extrair competição, rodada e local
-      const infoJogo = $el.find('.sc-cwHptR .sc-imWYAI.cYNmqd span.sc-jXbUNg').map((i, span) => $(span).text().trim()).get();
-      const competicao = infoJogo[0] || '';
-      const rodada = infoJogo[1] || '';
-      const local = infoJogo[2] || '';
-      
-      // Extrair times (adversário e Flamengo)
-      const times = $el.find('.sc-koXPp span.sc-eeDRCY').map((i, span) => $(span).text().trim()).get();
-      
-      // Identificar qual é o adversário (o que não é Flamengo)
-      let adversario = '';
-      if (times.length >= 2) {
-        adversario = times[0] === 'Flamengo' ? times[1] : times[0];
-      }
-      
-      // Determinar se é casa ou fora
-      const mandante = times[0] || '';
-      const visitante = times[1] || '';
-      const ehCasa = mandante === 'Flamengo';
-      
-      // Só adicionar se tiver pelo menos data e adversário
-      if (data && adversario) {
-        jogos.push({
-          data: data,
-          horario: horario || 'A definir',
-          adversario: adversario,
-          mandante: mandante,
-          visitante: visitante,
-          local: local || 'A definir',
-          competicao: competicao || 'Competição não informada',
-          rodada: rodada,
-          ehCasa: ehCasa
-        });
-      }
+    const page = await browser.newPage();
+    
+    // Navegar para a página
+    await page.goto('https://www.espn.com.br/futebol/time/calendario/_/id/819/bra.flamengo', {
+      waitUntil: 'networkidle2',
+      timeout: 30000
     });
+
+    // Aguardar a tabela de jogos carregar
+    await page.waitForSelector('tbody.Table__TBODY', { timeout: 10000 });
+
+    // Extrair os dados dos jogos
+    const jogos = await page.evaluate(() => {
+      const rows = document.querySelectorAll('tbody.Table__TBODY tr.Table__TR');
+      const results = [];
+
+      rows.forEach(row => {
+        try {
+          // Data
+          const dataEl = row.querySelector('td:first-child span');
+          const data = dataEl ? dataEl.textContent.trim() : '';
+
+          // Adversário - pegar o nome do time (não Flamengo)
+          const teams = row.querySelectorAll('.Table__Team');
+          let adversario = '';
+          let mandante = '';
+          let visitante = '';
+          let ehCasa = false;
+
+          if (teams.length >= 2) {
+            const time1 = teams[0].textContent.trim();
+            const time2 = teams[1].textContent.trim();
+            
+            if (time1.includes('Flamengo')) {
+              mandante = 'Flamengo';
+              visitante = time2;
+              adversario = time2;
+              ehCasa = true;
+            } else {
+              mandante = time1;
+              visitante = 'Flamengo';
+              adversario = time1;
+              ehCasa = false;
+            }
+          }
+
+          // Horário
+          const horarioEl = row.querySelector('td:nth-child(2)');
+          const horario = horarioEl ? horarioEl.textContent.trim() : '';
+
+          // Competição
+          const competicaoEl = row.querySelector('.Schedule__League');
+          const competicao = competicaoEl ? competicaoEl.textContent.trim() : '';
+
+          // Local (se disponível)
+          const localEl = row.querySelector('.Schedule__Location');
+          const local = localEl ? localEl.textContent.trim() : '';
+
+          // Só adicionar se tiver data e adversário
+          if (data && adversario) {
+            results.push({
+              data,
+              horario: horario || 'A definir',
+              adversario,
+              mandante,
+              visitante,
+              local: local || 'A definir',
+              competicao: competicao || 'A definir',
+              ehCasa
+            });
+          }
+        } catch (error) {
+          console.error('Erro ao processar linha:', error);
+        }
+      });
+
+      return results;
+    });
+
+    await browser.close();
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        jogos: jogos.slice(0, 15), // Limitar a 15 jogos
+        jogos: jogos.slice(0, 15),
         total: jogos.length,
         timestamp: new Date().toISOString()
       })
     };
 
   } catch (error) {
+    if (browser) {
+      await browser.close();
+    }
+
     console.error('Erro no scraping:', error);
     
     return {
