@@ -15,72 +15,63 @@ exports.handler = async (event, context) => {
   try {
     const API_KEY = process.env.API_FOOTBALL_KEY;
     
-    // LOG PARA DEBUG
-    console.log('API_KEY existe?', !!API_KEY);
-    
-    // DADOS DE TESTE - Remover depois
-    const jogosTeste = [
-      {
-        data: '15/11/2024',
-        horario: '18:30',
-        adversario: 'Vasco',
-        mandante: 'Flamengo',
-        visitante: 'Vasco',
-        local: 'Maracanã',
-        competicao: 'Campeonato Brasileiro',
-        rodada: 'Rodada 34',
-        ehCasa: true
-      },
-      {
-        data: '20/11/2024',
-        horario: '21:00',
-        adversario: 'Palmeiras',
-        mandante: 'Palmeiras',
-        visitante: 'Flamengo',
-        local: 'Allianz Parque',
-        competicao: 'Campeonato Brasileiro',
-        rodada: 'Rodada 35',
-        ehCasa: false
-      }
-    ];
-
-    // RETORNAR DADOS DE TESTE PRIMEIRO
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        jogos: jogosTeste,
-        total: jogosTeste.length,
-        timestamp: new Date().toISOString(),
-        debug: {
-          hasApiKey: !!API_KEY
-        }
-      })
-    };
-
-    // SE OS DADOS DE TESTE APARECEREM, ENTÃO O PROBLEMA É NA API
-    // Aí descomente o código abaixo:
-    
-    /*
+    // Verificar se a API Key existe
     if (!API_KEY) {
-      throw new Error('API_KEY não configurada');
+      console.error('API_KEY não configurada!');
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({
+          error: 'API Key não configurada no Netlify',
+          message: 'Configure API_FOOTBALL_KEY nas variáveis de ambiente',
+          jogos: []
+        })
+      };
     }
 
+    console.log('Buscando jogos do Flamengo...');
+
+    // Chamar a API-Football
     const response = await axios.get('https://v3.football.api-sports.io/fixtures', {
       params: {
-        team: 127,
-        season: 2024,
-        next: 15
+        team: 127,      // ID do Flamengo
+        season: 2024,   // Temporada atual
+        next: 15        // Próximos 15 jogos
       },
       headers: {
         'x-rapidapi-key': API_KEY,
         'x-rapidapi-host': 'v3.football.api-sports.io'
-      }
+      },
+      timeout: 10000
     });
 
-    console.log('Resposta da API:', response.data);
+    console.log('Resposta da API:', {
+      status: response.status,
+      total: response.data.response?.length || 0
+    });
 
     const fixtures = response.data.response || [];
+    
+    // Se não houver jogos futuros, buscar também temporada 2025
+    if (fixtures.length === 0) {
+      console.log('Tentando buscar jogos de 2025...');
+      const response2025 = await axios.get('https://v3.football.api-sports.io/fixtures', {
+        params: {
+          team: 127,
+          season: 2025,
+          next: 15
+        },
+        headers: {
+          'x-rapidapi-key': API_KEY,
+          'x-rapidapi-host': 'v3.football.api-sports.io'
+        },
+        timeout: 10000
+      });
+      
+      fixtures.push(...(response2025.data.response || []));
+    }
+
+    // Mapear os dados
     const jogos = fixtures.map(fixture => {
       const homeTeam = fixture.teams.home.name;
       const awayTeam = fixture.teams.away.name;
@@ -111,6 +102,8 @@ exports.handler = async (event, context) => {
       };
     });
 
+    console.log(`Retornando ${jogos.length} jogos`);
+
     return {
       statusCode: 200,
       headers,
@@ -120,10 +113,13 @@ exports.handler = async (event, context) => {
         timestamp: new Date().toISOString()
       })
     };
-    */
 
   } catch (error) {
-    console.error('Erro completo:', error);
+    console.error('Erro detalhado:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
     
     return {
       statusCode: 500,
@@ -131,7 +127,7 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         error: 'Erro ao buscar jogos do Flamengo',
         message: error.message,
-        stack: error.stack,
+        details: error.response?.data || null,
         jogos: []
       })
     };
