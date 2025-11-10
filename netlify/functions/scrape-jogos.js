@@ -25,20 +25,48 @@ exports.handler = async (event, context) => {
     const $ = cheerio.load(html);
     const jogos = [];
 
-    // ATENÇÃO: Você precisará ajustar estes seletores depois de inspecionar a página
-    $('.proximos-jogos-lista .jogo-item, .agenda-jogo, .game-card').each((index, element) => {
+    // Selecionar todos os cards de jogos
+    $('a.sc-eldPxv').each((index, element) => {
       const $el = $(element);
       
-      const jogo = {
-        data: $el.find('.jogo-data, .game-date, [class*="data"]').text().trim(),
-        horario: $el.find('.jogo-horario, .game-time, [class*="horario"]').text().trim(),
-        adversario: $el.find('.jogo-adversario, .team-name, [class*="adversario"]').text().trim(),
-        local: $el.find('.jogo-local, .venue, [class*="local"]').text().trim(),
-        competicao: $el.find('.jogo-competicao, .competition, [class*="competicao"]').text().trim()
-      };
-
-      if (jogo.adversario) {
-        jogos.push(jogo);
+      // Extrair data e horário
+      const dataHorario = $el.find('.sc-imWYAI.cYNmqd span.sc-jXbUNg').map((i, span) => $(span).text().trim()).get();
+      const data = dataHorario[0] || '';
+      const horario = dataHorario[1] || '';
+      
+      // Extrair competição, rodada e local
+      const infoJogo = $el.find('.sc-cwHptR .sc-imWYAI.cYNmqd span.sc-jXbUNg').map((i, span) => $(span).text().trim()).get();
+      const competicao = infoJogo[0] || '';
+      const rodada = infoJogo[1] || '';
+      const local = infoJogo[2] || '';
+      
+      // Extrair times (adversário e Flamengo)
+      const times = $el.find('.sc-koXPp span.sc-eeDRCY').map((i, span) => $(span).text().trim()).get();
+      
+      // Identificar qual é o adversário (o que não é Flamengo)
+      let adversario = '';
+      if (times.length >= 2) {
+        adversario = times[0] === 'Flamengo' ? times[1] : times[0];
+      }
+      
+      // Determinar se é casa ou fora
+      const mandante = times[0] || '';
+      const visitante = times[1] || '';
+      const ehCasa = mandante === 'Flamengo';
+      
+      // Só adicionar se tiver pelo menos data e adversário
+      if (data && adversario) {
+        jogos.push({
+          data: data,
+          horario: horario || 'A definir',
+          adversario: adversario,
+          mandante: mandante,
+          visitante: visitante,
+          local: local || 'A definir',
+          competicao: competicao || 'Competição não informada',
+          rodada: rodada,
+          ehCasa: ehCasa
+        });
       }
     });
 
@@ -46,7 +74,7 @@ exports.handler = async (event, context) => {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        jogos: jogos.slice(0, 10),
+        jogos: jogos.slice(0, 15), // Limitar a 15 jogos
         total: jogos.length,
         timestamp: new Date().toISOString()
       })
