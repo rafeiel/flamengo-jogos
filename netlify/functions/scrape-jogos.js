@@ -15,7 +15,6 @@ exports.handler = async (event, context) => {
   try {
     const API_KEY = process.env.API_FOOTBALL_KEY;
     
-    // Verificar se a API Key existe
     if (!API_KEY) {
       console.error('API_KEY não configurada!');
       return {
@@ -23,7 +22,6 @@ exports.handler = async (event, context) => {
         headers,
         body: JSON.stringify({
           error: 'API Key não configurada no Netlify',
-          message: 'Configure API_FOOTBALL_KEY nas variáveis de ambiente',
           jogos: []
         })
       };
@@ -31,48 +29,49 @@ exports.handler = async (event, context) => {
 
     console.log('Buscando jogos do Flamengo...');
 
-    // Chamar a API-Football
-    const response = await axios.get('https://v3.football.api-sports.io/fixtures', {
-      params: {
-        team: 127,      // ID do Flamengo
-        season: 2024,   // Temporada atual
-        next: 15        // Próximos 15 jogos
-      },
-      headers: {
-        'x-rapidapi-key': API_KEY,
-        'x-rapidapi-host': 'v3.football.api-sports.io'
-      },
-      timeout: 10000
-    });
+    // Buscar jogos de 2024 e 2025
+    const anos = [2024, 2025];
+    let todosJogos = [];
 
-    console.log('Resposta da API:', {
-      status: response.status,
-      total: response.data.response?.length || 0
-    });
+    for (const ano of anos) {
+      try {
+        console.log(`Tentando ano ${ano}...`);
+        
+        const response = await axios.get('https://v3.football.api-sports.io/fixtures', {
+          params: {
+            team: 127,      // ID do Flamengo
+            season: ano,
+            status: 'NS'    // NS = Not Started (jogos que não começaram)
+          },
+          headers: {
+            'x-rapidapi-key': API_KEY,
+            'x-rapidapi-host': 'v3.football.api-sports.io'
+          },
+          timeout: 10000
+        });
 
-    const fixtures = response.data.response || [];
-    
-    // Se não houver jogos futuros, buscar também temporada 2025
-    if (fixtures.length === 0) {
-      console.log('Tentando buscar jogos de 2025...');
-      const response2025 = await axios.get('https://v3.football.api-sports.io/fixtures', {
-        params: {
-          team: 127,
-          season: 2025,
-          next: 15
-        },
-        headers: {
-          'x-rapidapi-key': API_KEY,
-          'x-rapidapi-host': 'v3.football.api-sports.io'
-        },
-        timeout: 10000
-      });
-      
-      fixtures.push(...(response2025.data.response || []));
+        console.log(`Ano ${ano}: ${response.data.response?.length || 0} jogos encontrados`);
+        
+        if (response.data.response && response.data.response.length > 0) {
+          todosJogos.push(...response.data.response);
+        }
+      } catch (error) {
+        console.error(`Erro ao buscar ${ano}:`, error.message);
+      }
     }
 
+    // Ordenar por data (mais próximos primeiro)
+    todosJogos.sort((a, b) => {
+      return new Date(a.fixture.date) - new Date(b.fixture.date);
+    });
+
+    // Limitar aos próximos 15 jogos
+    todosJogos = todosJogos.slice(0, 15);
+
+    console.log(`Total de jogos futuros encontrados: ${todosJogos.length}`);
+
     // Mapear os dados
-    const jogos = fixtures.map(fixture => {
+    const jogos = todosJogos.map(fixture => {
       const homeTeam = fixture.teams.home.name;
       const awayTeam = fixture.teams.away.name;
       const ehCasa = homeTeam === 'Flamengo';
@@ -102,8 +101,6 @@ exports.handler = async (event, context) => {
       };
     });
 
-    console.log(`Retornando ${jogos.length} jogos`);
-
     return {
       statusCode: 200,
       headers,
@@ -127,7 +124,6 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         error: 'Erro ao buscar jogos do Flamengo',
         message: error.message,
-        details: error.response?.data || null,
         jogos: []
       })
     };
