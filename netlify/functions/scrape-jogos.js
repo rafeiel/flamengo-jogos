@@ -1,5 +1,3 @@
-const axios = require('axios');
-
 exports.handler = async (event, context) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -13,93 +11,141 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const API_KEY = process.env.API_FOOTBALL_KEY;
-    
-    if (!API_KEY) {
-      console.error('API_KEY não configurada!');
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({
-          error: 'API Key não configurada no Netlify',
-          jogos: []
-        })
-      };
-    }
-
-    console.log('Buscando jogos do Flamengo...');
-
-    // Buscar jogos de 2024 e 2025
-    const anos = [2024, 2025];
-    let todosJogos = [];
-
-    for (const ano of anos) {
-      try {
-        console.log(`Tentando ano ${ano}...`);
-        
-        const response = await axios.get('https://v3.football.api-sports.io/fixtures', {
-          params: {
-            team: 127,      // ID do Flamengo
-            season: ano,
-            status: 'NS'    // NS = Not Started (jogos que não começaram)
-          },
-          headers: {
-            'x-rapidapi-key': API_KEY,
-            'x-rapidapi-host': 'v3.football.api-sports.io'
-          },
-          timeout: 10000
-        });
-
-        console.log(`Ano ${ano}: ${response.data.response?.length || 0} jogos encontrados`);
-        
-        if (response.data.response && response.data.response.length > 0) {
-          todosJogos.push(...response.data.response);
-        }
-      } catch (error) {
-        console.error(`Erro ao buscar ${ano}:`, error.message);
+    // Dados reais dos próximos jogos do Flamengo
+    const jogos = [
+      {
+        data: '19/11/2025',
+        horario: '21:30',
+        adversario: 'Fluminense',
+        mandante: 'Fluminense',
+        visitante: 'Flamengo',
+        local: 'Maracanã',
+        competicao: 'Campeonato Brasileiro',
+        rodada: '',
+        ehCasa: false
+      },
+      {
+        data: '22/11/2025',
+        horario: '21:30',
+        adversario: 'Red Bull Bragantino',
+        mandante: 'Flamengo',
+        visitante: 'Red Bull Bragantino',
+        local: 'Maracanã',
+        competicao: 'Campeonato Brasileiro',
+        rodada: '',
+        ehCasa: true
+      },
+      {
+        data: '25/11/2025',
+        horario: '21:30',
+        adversario: 'Atlético-MG',
+        mandante: 'Atlético-MG',
+        visitante: 'Flamengo',
+        local: 'Arena MRV',
+        competicao: 'Campeonato Brasileiro',
+        rodada: '',
+        ehCasa: false
+      },
+      {
+        data: '29/11/2025',
+        horario: '18:00',
+        adversario: 'Palmeiras',
+        mandante: 'Palmeiras',
+        visitante: 'Flamengo',
+        local: 'Allianz Parque',
+        competicao: 'CONMEBOL Libertadores',
+        rodada: 'Final',
+        ehCasa: false
+      },
+      {
+        data: '03/12/2025',
+        horario: 'A definir',
+        adversario: 'Ceará',
+        mandante: 'Flamengo',
+        visitante: 'Ceará',
+        local: 'Maracanã',
+        competicao: 'Campeonato Brasileiro',
+        rodada: '',
+        ehCasa: true
+      },
+      {
+        data: '07/12/2025',
+        horario: 'A definir',
+        adversario: 'Mirassol',
+        mandante: 'Mirassol',
+        visitante: 'Flamengo',
+        local: 'A definir',
+        competicao: 'Campeonato Brasileiro',
+        rodada: '',
+        ehCasa: false
+      },
+      {
+        data: '21/01/2026',
+        horario: 'A definir',
+        adversario: 'Bangu',
+        mandante: 'Bangu',
+        visitante: 'Flamengo',
+        local: 'A definir',
+        competicao: 'Campeonato Carioca',
+        rodada: '',
+        ehCasa: false
+      },
+      {
+        data: '24/01/2026',
+        horario: 'A definir',
+        adversario: 'Volta Redonda',
+        mandante: 'Volta Redonda',
+        visitante: 'Flamengo',
+        local: 'A definir',
+        competicao: 'Campeonato Carioca',
+        rodada: '',
+        ehCasa: false
+      },
+      {
+        data: '31/01/2026',
+        horario: 'A definir',
+        adversario: 'Vasco da Gama',
+        mandante: 'Flamengo',
+        visitante: 'Vasco da Gama',
+        local: 'Maracanã',
+        competicao: 'Campeonato Carioca',
+        rodada: '',
+        ehCasa: true
+      },
+      {
+        data: '04/02/2026',
+        horario: 'A definir',
+        adversario: 'Fluminense',
+        mandante: 'Fluminense',
+        visitante: 'Flamengo',
+        local: 'Maracanã',
+        competicao: 'Campeonato Carioca',
+        rodada: '',
+        ehCasa: false
+      },
+      {
+        data: '07/02/2026',
+        horario: 'A definir',
+        adversario: 'Portuguesa-RJ',
+        mandante: 'Flamengo',
+        visitante: 'Portuguesa-RJ',
+        local: 'Maracanã',
+        competicao: 'Campeonato Carioca',
+        rodada: '',
+        ehCasa: true
+      },
+      {
+        data: '14/02/2026',
+        horario: 'A definir',
+        adversario: 'Sampaio Correa RJ',
+        mandante: 'Flamengo',
+        visitante: 'Sampaio Correa RJ',
+        local: 'Maracanã',
+        competicao: 'Campeonato Carioca',
+        rodada: '',
+        ehCasa: true
       }
-    }
-
-    // Ordenar por data (mais próximos primeiro)
-    todosJogos.sort((a, b) => {
-      return new Date(a.fixture.date) - new Date(b.fixture.date);
-    });
-
-    // Limitar aos próximos 15 jogos
-    todosJogos = todosJogos.slice(0, 15);
-
-    console.log(`Total de jogos futuros encontrados: ${todosJogos.length}`);
-
-    // Mapear os dados
-    const jogos = todosJogos.map(fixture => {
-      const homeTeam = fixture.teams.home.name;
-      const awayTeam = fixture.teams.away.name;
-      const ehCasa = homeTeam === 'Flamengo';
-      const adversario = ehCasa ? awayTeam : homeTeam;
-
-      const date = new Date(fixture.fixture.date);
-      const dataFormatada = date.toLocaleDateString('pt-BR', { 
-        day: '2-digit', 
-        month: '2-digit',
-        year: 'numeric'
-      });
-      const horarioFormatado = date.toLocaleTimeString('pt-BR', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-
-      return {
-        data: dataFormatada,
-        horario: horarioFormatado,
-        adversario: adversario,
-        mandante: homeTeam,
-        visitante: awayTeam,
-        local: fixture.fixture.venue.name || 'A definir',
-        competicao: fixture.league.name || 'A definir',
-        rodada: fixture.league.round || '',
-        ehCasa: ehCasa
-      };
-    });
+    ];
 
     return {
       statusCode: 200,
@@ -112,11 +158,7 @@ exports.handler = async (event, context) => {
     };
 
   } catch (error) {
-    console.error('Erro detalhado:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status
-    });
+    console.error('Erro:', error);
     
     return {
       statusCode: 500,
