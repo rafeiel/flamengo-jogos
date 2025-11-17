@@ -31,18 +31,25 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-950 via-black to-red-950">
+ <div className="min-h-screen bg-gradient-to-br from-red-950 via-black to-red-950">
       {/* Header */}
       <header className="bg-black/50 backdrop-blur-sm border-b border-red-900/30">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-white mb-1">
-                Próximos Jogos do Flamengo
-              </h1>
-              <p className="text-red-400 text-sm md:text-base">
-                Acompanhe a agenda do Mengão
-              </p>
+            <div className="flex items-center gap-4">
+              <img 
+                src="https://upload.wikimedia.org/wikipedia/commons/9/93/Flamengo-RJ_%28BRA%29.png" 
+                alt="Flamengo" 
+                className="w-16 h-16 md:w-20 md:h-20 object-contain"
+              />
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-white mb-1">
+                  Próximos Jogos do Flamengo
+                </h1>
+                <p className="text-red-400 text-sm md:text-base">
+                  Acompanhe a agenda do Mengão
+                </p>
+              </div>
             </div>
             <button
               onClick={fetchJogos}
